@@ -1,6 +1,6 @@
 import os
-# os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-# os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import torch
 import torchvision
 import torch.nn as nn
@@ -15,8 +15,8 @@ from logisticnet import LogisticNet
 
 
 def main(opt):
-    train_data=torchvision.datasets.MNIST('./', train=True, download=True,transform=torchvision.transforms.ToTensor())
-    test_data=torchvision.datasets.MNIST('./', train=False, download=True,transform=torchvision.transforms.ToTensor())
+    train_data=torchvision.datasets.MNIST('../data/', train=True, download=True,transform=torchvision.transforms.ToTensor())
+    test_data=torchvision.datasets.MNIST('../data/', train=False, download=True,transform=torchvision.transforms.ToTensor())
 
     train_data_list=[]
     train_label_list=[]
@@ -59,7 +59,9 @@ def main(opt):
         all_data_size=len(train_data_list)
         all_data_tensor=torch.stack(train_data_list)
         all_label_tensor=torch.tensor(train_label_list)
+
         init_data_tensor=torch.stack(train_data_list[0:init_data_size])
+
         init_label_tensor=torch.tensor(train_label_list[0:init_data_size])
 
         test_accuracy_list=[]
@@ -80,7 +82,7 @@ def main(opt):
                 labelled_list=[i for i in range(0,init_data_size)]
                 for i in range(0,all_data_size-init_data_size):
                     acq_tensor=net.predictive_entropy(all_data_tensor[unlabelled_list])
-                    target_index=unlabelled_list[np.argmax(acq_tensor.numpy())]
+                    target_index=unlabelled_list[np.argmax(acq_tensor.cpu().numpy())]
                     net.online_train(all_data_tensor[target_index],all_label_tensor[target_index].view(-1))
                     labelled_list.append(target_index)
                     unlabelled_list.remove(target_index)
@@ -101,7 +103,7 @@ def main(opt):
                 index_list=np.arange(0,len(train_label_list))
                 for i in range(0,all_data_size):
                     acq_tensor=net.predictive_entropy(all_data_tensor)
-                    target_index=np.argmax(acq_tensor.numpy())
+                    target_index=np.argmax(acq_tensor.cpu().numpy())
                     print(target_index)
                     net.online_train(all_data_tensor[target_index],all_label_tensor[target_index].view(-1))
 
@@ -155,7 +157,7 @@ if __name__=='__main__':
     opt= {}
     if torch.cuda.is_available():
         torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.benchmark = True
         opt['device']= torch.device('cuda:0')
         opt['if_cuda']=True
     else:
@@ -164,10 +166,10 @@ if __name__=='__main__':
        
 
     opt['active_learning']=True
-    #opt['acquisition']='predictive_entropy'
-    #opt['allow_revisit']=True
-    opt['allow_revisit']=False
-    opt['acquisition']='random'
+    opt['acquisition']='predictive_entropy'
+    opt['allow_revisit']=True
+    #opt['allow_revisit']=False
+    #opt['acquisition']='random'
     opt['init_data_size']=1
     opt['q_rank']=10
     opt['online_lr']=1e-4

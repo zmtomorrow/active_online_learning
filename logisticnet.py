@@ -8,17 +8,6 @@ import operator
 import itertools
 import matplotlib.pyplot as plt
 import math
-np.random.seed(0)
-torch.manual_seed(0)
-opt= {}
-if torch.cuda.is_available():
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    opt['device']= torch.device('cuda:0')
-    opt['if_cuda']=True
-else:
-    opt['device']= torch.device('cpu')
-    opt['if_cuda']=False
 
 
 class LogisticNet(nn.Module):
@@ -49,10 +38,10 @@ class LogisticNet(nn.Module):
         return (p>0.5).float()
 
     def marginal_probability(self,x,mode='erf',sample_num=1000):
-        x=x.view(-1,784)
+        x=x.view(-1,784).to(self.device)
         if mode=='erf':
             with torch.no_grad():
-                cov=self.q_L@self.q_L.t()+torch.eye(784)*(self.q_sigma**2)
+                cov=self.q_L@self.q_L.t()+torch.eye(784).to(self.device)*(self.q_sigma**2)
                 pre_act_var=torch.bmm((x@cov).view(-1,1,784),x.view(-1,784,1)).squeeze()
                 pre_act_mu=x@self.q_mu
                 ks=(1+math.pi*pre_act_var/8)**(-0.5)
@@ -68,7 +57,7 @@ class LogisticNet(nn.Module):
 
 
     def online_train(self,x,label,sample_num=1,iteration=200):
-        x=x.view(-1,784)
+        x=x.view(-1,784).to(self.device)
         train_losses = []
         prob_list = []
         entropy_list = []
@@ -84,7 +73,7 @@ class LogisticNet(nn.Module):
             logits=x@final_weight_sample
             probs=torch.sigmoid(logits)
             nll_loss=F.binary_cross_entropy_with_logits(logits, label.type_as(logits))*total_size
-            kl=KL_low_rank_gaussian_with_low_rank_gaussian(self.q_mu,self.q_L,self.q_sigma,curr_prior_mu,curr_prior_L,curr_prior_sigma)
+            kl=KL_low_rank_gaussian_with_low_rank_gaussian(self.q_mu,self.q_L,self.q_sigma,curr_prior_mu,curr_prior_L,curr_prior_sigma,cuda=self.if_cuda)
             neg_elbo=kl+nll_loss
             neg_elbo.backward()
             self.online_optimizer.step()
@@ -95,7 +84,7 @@ class LogisticNet(nn.Module):
         return prob_list
     
     def train(self,x,label):
-        x=x.view(-1,784)
+        x=x.view(-1,784).to(self.device)
         train_losses = []
         if x.size(0)<100:
             batch_size=x.size(0)
@@ -117,22 +106,13 @@ class LogisticNet(nn.Module):
                 neg_elbo.backward()
                 self.optimizer.step()
                 train_losses.append(neg_elbo.item())
-            print('accuracy',neg_elbo)
-        #plt.plot(train_losses)
-        #plt.show()
         return train_losses
         
-    #def test(self):
-    #    correct=0
-    #    for data, target in test_loader:
-    #        pred = self.predict(data,'erf')
-    #        correct += pred.eq(target.data.view_as(pred)).sum()
-    #        correct_ratio= float(correct)/len(test_loader.dataset)
-    #    return correct_ratio
 
     def test(self,test_data,test_label):
-        pred=self.predict(test_data)
-        correct=pred.eq(test_label).sum().detach().numpy()
-        ratio=float(correct/test_label.size())
-        return ratio
+        with torch.no_grad():
+            pred=self.predict(test_data)
+            correct=pred.eq(test_label.type_as(pred)).sum().float()
+            ratio=correct/torch.tensor(test_label.size(0))
+            return ratio.item()
     
