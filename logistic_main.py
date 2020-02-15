@@ -122,6 +122,9 @@ def main(opt):
 
 
         elif opt['acquisition']=='random':
+            train_data_size=all_data_size-init_data_size
+            train_data_tensor=torch.stack(train_data_list[init_data_size:])
+            train_label_tensor=torch.tensor(train_label_list[init_data_size:])
             trained_data_tensor=init_data_tensor.clone()
             trained_label_tensor=init_label_tensor.clone()
             index_list=np.arange(0,train_data_size)
@@ -161,10 +164,10 @@ if __name__=='__main__':
        
 
     opt['active_learning']=True
-    opt['acquisition']='predictive_entropy'
+    #opt['acquisition']='predictive_entropy'
     #opt['allow_revisit']=True
     opt['allow_revisit']=False
-    #opt['acquisition']='random'
+    opt['acquisition']='random'
     opt['init_data_size']=1
     opt['q_rank']=10
     opt['online_lr']=1e-4
