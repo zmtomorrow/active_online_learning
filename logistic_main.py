@@ -1,4 +1,5 @@
 import os
+import argparse
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import torch
@@ -152,6 +153,15 @@ def main(opt):
 
 
 if __name__=='__main__':
+    parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
+    parser.add_argument('--q_rank', type=int, default=10)
+    parser.add_argument('--if_active', type=bool, default=True)
+    parser.add_argument('--if_revisit', type=bool, default=False)
+    parser.add_argument('--acquisition', type=str, default='predictive_entropy')
+
+    parser.add_argument('--file', type=str, default='1.txt')
+    args = parser.parse_args()
+
     np.random.seed(0)
     torch.manual_seed(0)
     opt= {}
@@ -164,15 +174,24 @@ if __name__=='__main__':
         opt['device']= torch.device('cpu')
         opt['if_cuda']=False
        
-
-    opt['active_learning']=True
-    opt['acquisition']='predictive_entropy'
-    opt['allow_revisit']=True
-    #opt['allow_revisit']=False
-    #opt['acquisition']='random'
     opt['init_data_size']=1
-    opt['q_rank']=10
     opt['online_lr']=1e-4
 
-    main(opt)
-       
+    opt['active_learning']=args.if_active
+    opt['acquisition']=args.acquisition
+    opt['allow_revisit']=args.if_revisit
+    opt['q_rank']=args.q_rank
+    
+    save_file='./results/'+args.file
+    f=open(save_file,'w')
+    f.write(str(opt))
+    f.write('\n')
+    train_list,test_list=main(opt)
+    f.write('train_accuracy')
+    f.write('\n')
+    f.write(str(train_list))
+    f.write('train_accuracy')
+    f.write('\n')
+    f.write(str(test_list))
+    f.write('\n')
+    f.close()

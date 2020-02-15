@@ -1,0 +1,1 @@
+{'device': device(type='cpu'), 'if_cuda': False, 'init_data_size': 1, 'online_lr': 0.0001, 'active_learning': True, 'acquisition': 'random', 'allow_revisit': False, 'q_rank': 10}
