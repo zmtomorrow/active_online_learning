@@ -94,6 +94,7 @@ def main(opt):
                     labelled_label_tensor=all_label_tensor[labelled_list]
                     
                     train_accuracy=net.test(labelled_data_tensor,labelled_label_tensor)
+                    train_accuracy_list.append(train_accuracy)
                     test_accuracy=net.test(test_data_tensor,test_label_tensor)
                     test_accuracy_list.append(test_accuracy)
                     print(i)
@@ -118,6 +119,7 @@ def main(opt):
                     labelled_label_tensor=all_label_tensor[labelled_list]
                     
                     train_accuracy=net.test(labelled_data_tensor,labelled_label_tensor)
+                    train_accuracy_list.append(train_accuracy)
                     test_accuracy=net.test(test_data_tensor,test_label_tensor)
                     test_accuracy_list.append(test_accuracy)
                     print(i,'labelled_data:',len(labelled_list))
@@ -195,10 +197,16 @@ if __name__=='__main__':
     opt['allow_revisit']=args.if_revisit
     opt['q_rank']=args.q_rank
     
-    save_file='./results/'+args.file
+    save_file='./results/'+args.file+'/'
     opt['file']=save_file
-    f=open(save_file,'w')
+    try:
+        os.mkdir(save_file)
+    except OSError:
+        print ("Creation of the directory %s failed" % save_file)
+    else:
+        print ("Successfully created the directory %s " % save_file)
+    config_file=save_file+'config.txt'
+    f=open(config_file,'w')
     f.write(str(opt))
-    f.write('\n')
     f.close()
     train_list,test_list=main(opt)
