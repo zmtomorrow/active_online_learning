@@ -56,7 +56,7 @@ class LogisticNet(nn.Module):
             raise NotImplementedError
 
 
-    def online_train(self,x,label,sample_num=1,iteration=200):
+    def online_train(self,x,label,sample_num,online_step):
         x=x.view(-1,784).to(self.device)
         train_losses = []
         prob_list = []
@@ -67,12 +67,11 @@ class LogisticNet(nn.Module):
         curr_prior_sigma = self.q_sigma.clone().detach()
 
    
-        for i in range(0,iteration):
+        for i in range(0,online_step):
             self.online_optimizer.zero_grad()
-            final_weight_sample= low_rank_gaussian_one_sample(self.q_mu,self.q_L,self.q_sigma,cuda=self.if_cuda)
-            logits=x@final_weight_sample
-            probs=torch.sigmoid(logits)
-            nll_loss=F.binary_cross_entropy_with_logits(logits, label.type_as(logits))*total_size
+            final_weight_sample= low_rank_gaussian_sample(self.q_mu,self.q_L,self.q_sigma,amount=sample_num,cuda=self.if_cuda)
+            probs=torch.mean(torch.sigmoid(x@final_weight_sample.t()),dim=-1)
+            nll_loss=F.binary_cross_entropy(probs, label.type_as(probs))*total_size
             kl=KL_low_rank_gaussian_with_low_rank_gaussian(self.q_mu,self.q_L,self.q_sigma,curr_prior_mu,curr_prior_L,curr_prior_sigma,cuda=self.if_cuda)
             neg_elbo=kl+nll_loss
             neg_elbo.backward()
@@ -83,7 +82,7 @@ class LogisticNet(nn.Module):
             
         return prob_list
     
-    def train(self,x,label):
+    def train(self,x,label,grad_mc_num=1):
         x=x.view(-1,784).to(self.device)
         train_losses = []
         if x.size(0)<100:
@@ -96,10 +95,9 @@ class LogisticNet(nn.Module):
             for it in range(0,iteration):
                 index=np.random.choice(x.size(0),batch_size)
                 self.optimizer.zero_grad()
-                final_weight_sample= low_rank_gaussian_one_sample(self.q_mu,self.q_L,self.q_sigma,cuda=self.if_cuda)
-                logits=x[index]@final_weight_sample
-                probs=torch.sigmoid(logits)
-                nll_loss=F.binary_cross_entropy_with_logits(logits, label[index].type_as(logits))*x.size(0)
+                final_weight_sample= low_rank_gaussian_sample(self.q_mu,self.q_L,self.q_sigma,amount=grad_mc_num,cuda=self.if_cuda)
+                probs=torch.mean(torch.sigmoid(x[index]@final_weight_sample.t()),dim=-1)
+                nll_loss=F.binary_cross_entropy(probs, label[index].type_as(probs))*x.size(0)
                 #nll_loss= -torch.mean(label[index]*torch.log(probs)+(1-label[index])*torch.log(1-probs))*x.size(0)
                 kl=KL_low_rank_gaussian_with_diag_gaussian(self.q_mu,self.q_L,self.q_sigma,self.prior_mu,self.prior_sigma,cuda=self.if_cuda)
                 neg_elbo=kl+nll_loss

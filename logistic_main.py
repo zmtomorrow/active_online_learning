@@ -86,7 +86,7 @@ def main(opt):
                 for i in range(0,all_data_size-init_data_size):
                     acq_tensor=net.predictive_entropy(all_data_tensor[unlabelled_list])
                     target_index=unlabelled_list[np.argmax(acq_tensor.cpu().numpy())]
-                    net.online_train(all_data_tensor[target_index],all_label_tensor[target_index].view(-1))
+                    net.online_train(all_data_tensor[target_index],all_label_tensor[target_index].view(-1),opt['grad_mc_num'], opt['online_step'])
                     labelled_list.append(target_index)
                     unlabelled_list.remove(target_index)
                     
@@ -100,6 +100,7 @@ def main(opt):
                     print(i)
                     print('train_accuracy',train_accuracy)
                     print('test_accuracy',test_accuracy)
+            
                     if i%100==0:
                         save_data(opt,i,train_accuracy_list,test_accuracy_list)
                 return train_accuracy_list,test_accuracy_list
@@ -110,7 +111,7 @@ def main(opt):
                 for i in range(0,all_data_size):
                     acq_tensor=net.predictive_entropy(all_data_tensor)
                     target_index=np.argmax(acq_tensor.cpu().numpy())
-                    net.online_train(all_data_tensor[target_index],all_label_tensor[target_index].view(-1))
+                    net.online_train(all_data_tensor[target_index],all_label_tensor[target_index].view(-1),opt['grad_mc_num'],opt['online_step'])
 
                     if target_index not in labelled_list:
                         labelled_list.append(target_index)
@@ -142,7 +143,7 @@ def main(opt):
             index_list=np.arange(0,train_data_size)
             np.random.shuffle(index_list)
             for i,index in enumerate(index_list):
-                net.online_train(train_data_tensor[index],train_label_tensor[index].view(-1))
+                net.online_train(train_data_tensor[index],train_label_tensor[index].view(-1),opt['grad_mc_num'],opt['online_step'])
 
                 trained_data_tensor=torch.cat((trained_data_tensor,train_data_tensor[index].unsqueeze(0)),0)
                 trained_label_tensor=torch.cat((trained_label_tensor,train_label_tensor[index].unsqueeze(0)),0)
@@ -174,6 +175,8 @@ if __name__=='__main__':
     parser.add_argument('--log_time', type=int, default='100')
 
     parser.add_argument('--file', type=str, default='1.txt')
+    parser.add_argument('--grad_mc_num', type=int, default=1)
+    parser.add_argument('--online_step', type=int, default=200)
     args = parser.parse_args()
 
     np.random.seed(0)
@@ -196,6 +199,8 @@ if __name__=='__main__':
     opt['acquisition']=args.acquisition
     opt['allow_revisit']=args.if_revisit
     opt['q_rank']=args.q_rank
+    opt['grad_mc_num']=args.grad_mc_num 
+    opt['online_step']=args.online_step 
     
     save_file='./results/'+args.file+'/'
     opt['file']=save_file
