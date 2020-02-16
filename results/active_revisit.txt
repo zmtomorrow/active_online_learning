@@ -1,0 +1,7 @@
+{'device': device(type='cuda', index=0), 'if_cuda': True, 'init_data_size': 1, 'online_lr': 0.0001, 'active_learning': True, 'acquisition': 'predictive_entropy', 'allow_revisit': True, 'q_rank': 10, 'file': './results/active_revisit.txt'}
+
+iteration:0
+ train_list:
+[1.0]
+ test_list:
+[0.5041728019714355, 0.5395188927650452]

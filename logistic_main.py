@@ -10,6 +10,7 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 import numpy as np
 from tools import *
+from utils import *
 import operator
 import itertools
 from logisticnet import LogisticNet
@@ -58,6 +59,7 @@ def main(opt):
     else:
         init_data_size=opt['init_data_size']
         all_data_size=len(train_data_list)
+        print(all_data_size)
         all_data_tensor=torch.stack(train_data_list)
         all_label_tensor=torch.tensor(train_label_list)
 
@@ -92,11 +94,13 @@ def main(opt):
                     labelled_label_tensor=all_label_tensor[labelled_list]
                     
                     train_accuracy=net.test(labelled_data_tensor,labelled_label_tensor)
-                    print(i,'initial train accuracy',train_accuracy)
                     test_accuracy=net.test(test_data_tensor,test_label_tensor)
                     test_accuracy_list.append(test_accuracy)
-                    print(i,'initial test accuracy',test_accuracy)
-
+                    print(i)
+                    print('train_accuracy',train_accuracy)
+                    print('test_accuracy',test_accuracy)
+                    if i%100==0:
+                        save_data(opt,i,train_accuracy_list,test_accuracy_list)
                 return train_accuracy_list,test_accuracy_list
 
             else:
@@ -105,7 +109,6 @@ def main(opt):
                 for i in range(0,all_data_size):
                     acq_tensor=net.predictive_entropy(all_data_tensor)
                     target_index=np.argmax(acq_tensor.cpu().numpy())
-                    print(target_index)
                     net.online_train(all_data_tensor[target_index],all_label_tensor[target_index].view(-1))
 
                     if target_index not in labelled_list:
@@ -115,11 +118,15 @@ def main(opt):
                     labelled_label_tensor=all_label_tensor[labelled_list]
                     
                     train_accuracy=net.test(labelled_data_tensor,labelled_label_tensor)
-                    print(i,'train accuracy',train_accuracy)
                     test_accuracy=net.test(test_data_tensor,test_label_tensor)
                     test_accuracy_list.append(test_accuracy)
-                    print(i,'initial test accuracy',test_accuracy)
-                    print('labelled_data:',len(labelled_list))
+                    print(i,'labelled_data:',len(labelled_list))
+                    print('train_accuracy',train_accuracy)
+                    print('test_accuracy',test_accuracy)
+                
+                    if i%opt['log_time']==0:
+                        save_data(opt,i,train_accuracy_list,test_accuracy_list)
+
 
                 return train_accuracy_list,test_accuracy_list
 
@@ -141,12 +148,16 @@ def main(opt):
 
                 train_accuracy=net.test(trained_data_tensor,trained_label_tensor)
                 train_accuracy_list.append(train_accuracy)
-                print(i,'train accuracy',i,train_accuracy)
 
                 test_accuracy=net.test(test_data_tensor,test_label_tensor)
                 test_accuracy_list.append(test_accuracy)
-                print(i,'test accuracy',i,test_accuracy)
+                print(i)
+                print('train_accuracy',train_accuracy)
+                print('test_accuracy',test_accuracy)
 
+
+                if i%100==0:
+                    save_data(opt,i,train_accuracy_list,test_accuracy_list)
             return train_accuracy_list, test_accuracy_list
 
         
@@ -158,6 +169,7 @@ if __name__=='__main__':
     parser.add_argument('--if_active', type=bool, default=True)
     parser.add_argument('--if_revisit', type=bool, default=False)
     parser.add_argument('--acquisition', type=str, default='predictive_entropy')
+    parser.add_argument('--log_time', type=int, default='100')
 
     parser.add_argument('--file', type=str, default='1.txt')
     args = parser.parse_args()
@@ -177,21 +189,16 @@ if __name__=='__main__':
     opt['init_data_size']=1
     opt['online_lr']=1e-4
 
+    opt['log_time']=args.log_time
     opt['active_learning']=args.if_active
     opt['acquisition']=args.acquisition
     opt['allow_revisit']=args.if_revisit
     opt['q_rank']=args.q_rank
     
     save_file='./results/'+args.file
+    opt['file']=save_file
     f=open(save_file,'w')
     f.write(str(opt))
     f.write('\n')
-    train_list,test_list=main(opt)
-    f.write('train_accuracy')
-    f.write('\n')
-    f.write(str(train_list))
-    f.write('train_accuracy')
-    f.write('\n')
-    f.write(str(test_list))
-    f.write('\n')
     f.close()
+    train_list,test_list=main(opt)
