@@ -69,7 +69,6 @@ def main(opt):
 
         test_accuracy_list=[]
         train_accuracy_list=[]
-        test_accuracy_vs_data_list=[]
         net.train(init_data_tensor,init_label_tensor)
 
         train_accuracy=net.test(init_data_tensor,init_label_tensor)
@@ -113,26 +112,23 @@ def main(opt):
                     acq_tensor=net.predictive_entropy(all_data_tensor)
                     target_index=np.argmax(acq_tensor.cpu().numpy())
                     net.online_train(all_data_tensor[target_index],all_label_tensor[target_index].view(-1),opt['grad_mc_num'],opt['online_step'])
-                    
-                    test_accuracy=net.test(test_data_tensor,test_label_tensor)
-                    test_accuracy_list.append(test_accuracy)
 
                     if target_index not in labelled_list:
                         labelled_list.append(target_index)
-                        test_accuracy_vs_data_list.append(test_accuracy)
 
                     labelled_data_tensor=all_data_tensor[labelled_list]
                     labelled_label_tensor=all_label_tensor[labelled_list]
                     
                     train_accuracy=net.test(labelled_data_tensor,labelled_label_tensor)
                     train_accuracy_list.append(train_accuracy)
+                    test_accuracy=net.test(test_data_tensor,test_label_tensor)
+                    test_accuracy_list.append(test_accuracy)
                     print(i,'labelled_data:',len(labelled_list))
                     print('train_accuracy',train_accuracy)
                     print('test_accuracy',test_accuracy)
                 
                     if i%opt['log_time']==0:
                         save_data(opt,i,train_accuracy_list,test_accuracy_list)
-                        save_accuracy_vs_data(opt,test_accuracy_vs_data_list)
 
 
                 return train_accuracy_list,test_accuracy_list
@@ -181,7 +177,6 @@ if __name__=='__main__':
     parser.add_argument('--file', type=str, default='1.txt')
     parser.add_argument('--grad_mc_num', type=int, default=5)
     parser.add_argument('--online_step', type=int, default=200)
-    parser.add_argument('--online_lr', type=float, default=1e-4)
     args = parser.parse_args()
 
     np.random.seed(0)
@@ -197,7 +192,7 @@ if __name__=='__main__':
         opt['if_cuda']=False
        
     opt['init_data_size']=1
-    opt['online_lr']=args.online_lr
+    opt['online_lr']=1e-4
 
     opt['log_time']=args.log_time
     opt['active_learning']=args.if_active
