@@ -48,10 +48,11 @@ def main(opt):
     net=LogisticNet(opt).to(opt['device'])
 
     if opt['active_learning']==False:
+        print('here')
         train_data_tensor=torch.stack(train_data_list)
         train_label_tensor=torch.tensor(train_label_list)
         print('train_data_size',train_label_tensor.size(0))
-        net.train(train_data_tensor,train_label_tensor)
+        net.train(train_data_tensor,train_label_tensor,opt['mc_num'])
         accuracy=net.test(test_data_tensor,test_label_tensor)
         print(accuracy)
         return accuracy
@@ -70,7 +71,7 @@ def main(opt):
         test_accuracy_list=[]
         train_accuracy_list=[]
         test_accuracy_vs_data_list=[]
-        net.train(init_data_tensor,init_label_tensor,opt['grad_mc_num'])
+        net.train(init_data_tensor,init_label_tensor,opt['mc_num'])
 
         train_accuracy=net.test(init_data_tensor,init_label_tensor)
         train_accuracy_list.append(train_accuracy)
@@ -81,13 +82,14 @@ def main(opt):
         print('initial test accuracy',test_accuracy)
 
         if opt['acquisition']=='predictive_entropy':
-            if opt['allow_revisit']==False:
+            if opt['if_revisit']==False:
+                print('no_revisit')
                 unlabelled_list=[i for i in range(init_data_size,len(train_data_list))]
                 labelled_list=[i for i in range(0,init_data_size)]
                 for i in range(0,all_data_size-init_data_size):
                     acq_tensor=net.predictive_entropy(all_data_tensor[unlabelled_list])
                     target_index=unlabelled_list[np.argmax(acq_tensor.cpu().numpy())]
-                    net.online_train(all_data_tensor[target_index],all_label_tensor[target_index].view(-1),opt['grad_mc_num'], opt['online_step'])
+                    net.online_train(all_data_tensor[target_index],all_label_tensor[target_index].view(-1),opt['mc_num'], opt['online_step'])
                     labelled_list.append(target_index)
                     unlabelled_list.remove(target_index)
                     
@@ -112,7 +114,7 @@ def main(opt):
                 for i in range(0,all_data_size):
                     acq_tensor=net.predictive_entropy(all_data_tensor)
                     target_index=np.argmax(acq_tensor.cpu().numpy())
-                    net.online_train(all_data_tensor[target_index],all_label_tensor[target_index].view(-1),opt['grad_mc_num'],opt['online_step'])
+                    net.online_train(all_data_tensor[target_index],all_label_tensor[target_index].view(-1),opt['mc_num'],opt['online_step'])
                     
                     test_accuracy=net.test(test_data_tensor,test_label_tensor)
                     test_accuracy_list.append(test_accuracy)
@@ -147,7 +149,7 @@ def main(opt):
             index_list=np.arange(0,train_data_size)
             np.random.shuffle(index_list)
             for i,index in enumerate(index_list):
-                net.online_train(train_data_tensor[index],train_label_tensor[index].view(-1),opt['grad_mc_num'],opt['online_step'])
+                net.online_train(train_data_tensor[index],train_label_tensor[index].view(-1),opt['mc_num'],opt['online_step'])
 
                 trained_data_tensor=torch.cat((trained_data_tensor,train_data_tensor[index].unsqueeze(0)),0)
                 trained_label_tensor=torch.cat((trained_label_tensor,train_label_tensor[index].unsqueeze(0)),0)
@@ -173,13 +175,13 @@ def main(opt):
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
     parser.add_argument('--q_rank', type=int, default=10)
-    parser.add_argument('--if_active', type=bool, default=True)
-    parser.add_argument('--if_revisit', type=bool, default=False)
+    parser.add_argument('--if_revisit', type=str, default='False')
+    parser.add_argument('--if_active', type=str, default='True')
     parser.add_argument('--acquisition', type=str, default='predictive_entropy')
     parser.add_argument('--log_time', type=int, default='100')
 
     parser.add_argument('--file', type=str, default='1.txt')
-    parser.add_argument('--grad_mc_num', type=int, default=5)
+    parser.add_argument('--mc_num', type=int, default=5)
     parser.add_argument('--online_step', type=int, default=200)
     parser.add_argument('--online_lr', type=float, default=1e-4)
     args = parser.parse_args()
@@ -200,11 +202,20 @@ if __name__=='__main__':
     opt['online_lr']=args.online_lr
 
     opt['log_time']=args.log_time
-    opt['active_learning']=args.if_active
+    if args.if_active=='True':
+        opt['active_learning']=True
+    else:
+        opt['active_learning']=False
+        
+    if args.if_revisit=='True':
+        opt['if_revisit']=True
+    else:
+        opt['if_revisit']=False  
+    
+
     opt['acquisition']=args.acquisition
-    opt['allow_revisit']=args.if_revisit
     opt['q_rank']=args.q_rank
-    opt['grad_mc_num']=args.grad_mc_num 
+    opt['mc_num']=args.mc_num 
     opt['online_step']=args.online_step 
     
     save_file='./results/'+args.file+'/'

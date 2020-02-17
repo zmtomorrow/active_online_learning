@@ -97,12 +97,13 @@ class LogisticNet(nn.Module):
         else:
             batch_size=100
             iteration=int(x.size(0)/batch_size)
-        for epoch in range(0,500):
+        for epoch in range(0,30):
+            print('epoch',epoch)
             for it in range(0,iteration):
                 index=np.random.choice(x.size(0),batch_size)
                 self.optimizer.zero_grad()
-                probs=self.mc_forward(x,mc_num)
-                nll_loss=F.binary_cross_entropy(probs, label[index].type_as(probs))*x.size(0)
+                probs=self.mc_forward(x[index],mc_num)
+                nll_loss=F.binary_cross_entropy(probs, label[index].type_as(probs),reduction='mean')*x.size(0)
 
                 kl=KL_low_rank_gaussian_with_diag_gaussian(self.q_mu,self.q_L,self.q_sigma,self.prior_mu,self.prior_sigma,cuda=self.if_cuda)
                 neg_elbo=kl+nll_loss
