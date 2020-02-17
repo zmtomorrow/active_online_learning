@@ -37,6 +37,14 @@ class LogisticNet(nn.Module):
         p=self.marginal_probability(x,mode)
         return (p>0.5).float()
 
+    
+    def mc_forward(self,x,mc_num):
+        final_weight_sample= low_rank_gaussian_sample(self.q_mu,self.q_L,self.q_sigma,amount=mc_num,cuda=self.if_cuda)
+        probs=torch.mean(torch.sigmoid(x@final_weight_sample.t()),dim=-1)
+        return probs
+        
+        
+        
     def marginal_probability(self,x,mode='erf',sample_num=1000):
         x=x.view(-1,784).to(self.device)
         if mode=='erf':
@@ -49,14 +57,13 @@ class LogisticNet(nn.Module):
                 return probs
         elif mode=='mc':
             with torch.no_grad():
-                final_weight_samples=low_rank_gaussian_sample(self.q_mu,self.q_L,self.q_sigma,sample_num,cuda=self.if_cuda)
-                probs = torch.mean(torch.sigmoid(x@final_weight_samples.t()),dim=-1)
+                probs=self.mc_forward(x,sample_num)
                 return probs
         else:
             raise NotImplementedError
 
 
-    def online_train(self,x,label,grad_mc_num,online_step):
+    def online_train(self,x,label,mc_num,online_step):
         x=x.view(-1,784).to(self.device)
         train_losses = []
         prob_list = []
@@ -69,8 +76,7 @@ class LogisticNet(nn.Module):
    
         for i in range(0,online_step):
             self.online_optimizer.zero_grad()
-            final_weight_sample= low_rank_gaussian_sample(self.q_mu,self.q_L,self.q_sigma,amount=grad_mc_num,cuda=self.if_cuda)
-            probs=torch.mean(torch.sigmoid(x@final_weight_sample.t()),dim=-1)
+            probs=self.mc_forward(x,mc_num)
             nll_loss=F.binary_cross_entropy(probs, label.type_as(probs))*total_size
             kl=KL_low_rank_gaussian_with_low_rank_gaussian(self.q_mu,self.q_L,self.q_sigma,curr_prior_mu,curr_prior_L,curr_prior_sigma,cuda=self.if_cuda)
             neg_elbo=kl+nll_loss
@@ -82,7 +88,7 @@ class LogisticNet(nn.Module):
             
         return train_losses
     
-    def train(self,x,label,grad_mc_num=1):
+    def train(self,x,label,mc_num):
         x=x.view(-1,784).to(self.device)
         train_losses = []
         if x.size(0)<100:
@@ -95,10 +101,9 @@ class LogisticNet(nn.Module):
             for it in range(0,iteration):
                 index=np.random.choice(x.size(0),batch_size)
                 self.optimizer.zero_grad()
-                final_weight_sample= low_rank_gaussian_sample(self.q_mu,self.q_L,self.q_sigma,amount=grad_mc_num,cuda=self.if_cuda)
-                probs=torch.mean(torch.sigmoid(x[index]@final_weight_sample.t()),dim=-1)
+                probs=self.mc_forward(x,mc_num)
                 nll_loss=F.binary_cross_entropy(probs, label[index].type_as(probs))*x.size(0)
-                #nll_loss= -torch.mean(label[index]*torch.log(probs)+(1-label[index])*torch.log(1-probs))*x.size(0)
+
                 kl=KL_low_rank_gaussian_with_diag_gaussian(self.q_mu,self.q_L,self.q_sigma,self.prior_mu,self.prior_sigma,cuda=self.if_cuda)
                 neg_elbo=kl+nll_loss
                 neg_elbo.backward()
@@ -110,7 +115,8 @@ class LogisticNet(nn.Module):
     def test(self,test_data,test_label):
         with torch.no_grad():
             pred=self.predict(test_data)
-            correct=pred.eq(test_label.type_as(pred)).sum().float()
+            correct_list=pred.eq(test_label.type_as(pred))
+            correct=correct_list.sum().float()
             ratio=correct/torch.tensor(test_label.size(0))
             return ratio.item()
     

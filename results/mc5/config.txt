@@ -1,0 +1,1 @@
+{'device': device(type='cuda', index=0), 'if_cuda': True, 'init_data_size': 1, 'online_lr': 0.0001, 'log_time': 100, 'active_learning': True, 'acquisition': 'predictive_entropy', 'allow_revisit': True, 'q_rank': 10, 'grad_mc_num': 5, 'online_step': 200, 'file': './results/mc5/'}

@@ -70,7 +70,7 @@ def main(opt):
         test_accuracy_list=[]
         train_accuracy_list=[]
         test_accuracy_vs_data_list=[]
-        net.train(init_data_tensor,init_label_tensor)
+        net.train(init_data_tensor,init_label_tensor,opt['grad_mc_num'])
 
         train_accuracy=net.test(init_data_tensor,init_label_tensor)
         train_accuracy_list.append(train_accuracy)
