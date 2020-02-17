@@ -19,60 +19,65 @@ from logisticnet import LogisticNet
 def main(opt):
     train_data=torchvision.datasets.MNIST('../data/', train=True, download=True,transform=torchvision.transforms.ToTensor())
     test_data=torchvision.datasets.MNIST('../data/', train=False, download=True,transform=torchvision.transforms.ToTensor())
-
     train_data_list=[]
     train_label_list=[]
-    for x,y in train_data:
-        if y ==7 :
-            train_data_list.append(x)
-            train_label_list.append(0)
-        elif y ==9:
-            train_data_list.append(x)
-            train_label_list.append(1)
-        else:
-            pass
     test_data_list=[]
     test_label_list=[]
-    for x,y in test_data:
-        if y ==7:
+    if opt['classes']=='two':
+        print('Two classes classification')
+        net=LogisticNet(opt).to(opt['device'])
+        for x,y in train_data:
+            if y ==7 :
+                train_data_list.append(x)
+                train_label_list.append(0)
+            elif y ==9:
+                train_data_list.append(x)
+                train_label_list.append(1)
+            else:
+                pass
+        for x,y in test_data:
+            if y ==7:
+                test_data_list.append(x)
+                test_label_list.append(0)
+            elif y ==9:
+                test_data_list.append(x)
+                test_label_list.append(1)
+            else:
+                pass 
+    elif opt['classes']=='ten':
+        print('Ten classes classification')
+        #net=FullNet(opt).to(opt['device'])
+        for x,y in train_data:
+            train_data_list.append(x)
+            train_label_list.append(y)
+        for x,y in test_data:
             test_data_list.append(x)
-            test_label_list.append(0)
-        elif y ==9:
-            test_data_list.append(x)
-            test_label_list.append(1)
-        else:
-            pass 
+            test_label_list.append(y)
+          
+    all_data_size=len(train_data_list)
+    print('all data size:', all_data_size)
+    all_data_tensor=torch.stack(train_data_list)
+    all_label_tensor=torch.tensor(train_label_list)
     test_data_tensor=torch.stack(test_data_list)
     test_label_tensor=torch.tensor(test_label_list)
-
-    net=LogisticNet(opt).to(opt['device'])
-
+          
     if opt['active_learning']==False:
-        print('here')
-        train_data_tensor=torch.stack(train_data_list)
-        train_label_tensor=torch.tensor(train_label_list)
+        print('Start vanilla traing')
         print('train_data_size',train_label_tensor.size(0))
-        net.train(train_data_tensor,train_label_tensor,opt['mc_num'])
+        net.train(all_data_tensor,all_label_tensor,opt['mc_num'])
         accuracy=net.test(test_data_tensor,test_label_tensor)
         print(accuracy)
         return accuracy
-        
-    else:
+          
+    else: 
         init_data_size=opt['init_data_size']
-        all_data_size=len(train_data_list)
-        print(all_data_size)
-        all_data_tensor=torch.stack(train_data_list)
-        all_label_tensor=torch.tensor(train_label_list)
-
         init_data_tensor=torch.stack(train_data_list[0:init_data_size])
-
         init_label_tensor=torch.tensor(train_label_list[0:init_data_size])
 
         test_accuracy_list=[]
         train_accuracy_list=[]
         test_accuracy_vs_data_list=[]
         net.train(init_data_tensor,init_label_tensor,opt['mc_num'])
-
         train_accuracy=net.test(init_data_tensor,init_label_tensor)
         train_accuracy_list.append(train_accuracy)
         print('initial train accuracy',train_accuracy)
@@ -83,7 +88,7 @@ def main(opt):
 
         if opt['acquisition']=='predictive_entropy':
             if opt['if_revisit']==False:
-                print('no_revisit')
+                print('Start active learning with no revision.')
                 unlabelled_list=[i for i in range(init_data_size,len(train_data_list))]
                 labelled_list=[i for i in range(0,init_data_size)]
                 for i in range(0,all_data_size-init_data_size):
@@ -109,6 +114,7 @@ def main(opt):
                 return train_accuracy_list,test_accuracy_list
 
             else:
+                print('Start active learning with revision.')
                 labelled_list=[i for i in range(0,init_data_size)]
                 index_list=np.arange(0,len(train_label_list))
                 for i in range(0,all_data_size):
@@ -136,11 +142,11 @@ def main(opt):
                         save_data(opt,i,train_accuracy_list,test_accuracy_list)
                         save_accuracy_vs_data(opt,test_accuracy_vs_data_list)
 
-
                 return train_accuracy_list,test_accuracy_list
 
 
         elif opt['acquisition']=='random':
+            print('Start active learning with random selection.')
             train_data_size=all_data_size-init_data_size
             train_data_tensor=torch.stack(train_data_list[init_data_size:])
             train_label_tensor=torch.tensor(train_label_list[init_data_size:])
@@ -184,6 +190,7 @@ if __name__=='__main__':
     parser.add_argument('--mc_num', type=int, default=5)
     parser.add_argument('--online_step', type=int, default=200)
     parser.add_argument('--online_lr', type=float, default=1e-4)
+    parser.add_argument('--classes', type=str, default='two')
     args = parser.parse_args()
 
     np.random.seed(0)
@@ -200,7 +207,6 @@ if __name__=='__main__':
        
     opt['init_data_size']=1
     opt['online_lr']=args.online_lr
-
     opt['log_time']=args.log_time
     if args.if_active=='True':
         opt['active_learning']=True
@@ -217,6 +223,7 @@ if __name__=='__main__':
     opt['q_rank']=args.q_rank
     opt['mc_num']=args.mc_num 
     opt['online_step']=args.online_step 
+    opt['classes']=args.classes
     
     save_file='./results/'+args.file+'/'
     opt['file']=save_file
@@ -230,4 +237,4 @@ if __name__=='__main__':
     f=open(config_file,'w')
     f.write(str(opt))
     f.close()
-    train_list,test_list=main(opt)
+    main(opt)
