@@ -14,6 +14,7 @@ from utils import *
 import operator
 import itertools
 from logisticnet import LogisticNet
+from fullnet import FullNet
 
 
 def main(opt):
@@ -46,7 +47,7 @@ def main(opt):
                 pass 
     elif opt['classes']=='ten':
         print('Ten classes classification')
-        #net=FullNet(opt).to(opt['device'])
+        net=FullNet(opt).to(opt['device'])
         for x,y in train_data:
             train_data_list.append(x)
             train_label_list.append(y)
@@ -63,7 +64,7 @@ def main(opt):
           
     if opt['active_learning']==False:
         print('Start vanilla traing')
-        print('train_data_size',train_label_tensor.size(0))
+        print('train_data_size',all_label_tensor.size(0))
         net.train(all_data_tensor,all_label_tensor,opt['mc_num'])
         accuracy=net.test(test_data_tensor,test_label_tensor)
         print(accuracy)
@@ -185,7 +186,6 @@ if __name__=='__main__':
     parser.add_argument('--if_active', type=str, default='True')
     parser.add_argument('--acquisition', type=str, default='predictive_entropy')
     parser.add_argument('--log_time', type=int, default='100')
-
     parser.add_argument('--file', type=str, default='1.txt')
     parser.add_argument('--mc_num', type=int, default=5)
     parser.add_argument('--online_step', type=int, default=200)
@@ -208,23 +208,13 @@ if __name__=='__main__':
     opt['init_data_size']=1
     opt['online_lr']=args.online_lr
     opt['log_time']=args.log_time
-    if args.if_active=='True':
-        opt['active_learning']=True
-    else:
-        opt['active_learning']=False
-        
-    if args.if_revisit=='True':
-        opt['if_revisit']=True
-    else:
-        opt['if_revisit']=False  
-    
-
-    opt['acquisition']=args.acquisition
+    opt['active_learning']=convert2bool(args.if_active)
+    opt['if_revisit']=convert2bool(args.if_revisit)
     opt['q_rank']=args.q_rank
     opt['mc_num']=args.mc_num 
     opt['online_step']=args.online_step 
     opt['classes']=args.classes
-    
+    opt['acquisition']=args.acquisition 
     save_file='./results/'+args.file+'/'
     opt['file']=save_file
     try:
