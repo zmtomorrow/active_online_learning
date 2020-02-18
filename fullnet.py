@@ -98,6 +98,8 @@ class FullNet(nn.Module):
         
 
     def test(self,test_data,test_label):
+        test_data=test_data.view(-1,784).to(self.device)
+        test_label=test_label.to(self.device)
         with torch.no_grad():
             pred=self.predict(test_data)
             correct_list=pred.eq(test_label.type_as(pred))
