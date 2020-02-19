@@ -1,7 +1,5 @@
 import os
 import argparse
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import torch
 import torchvision
 import torch.nn as nn
@@ -120,7 +118,7 @@ def main(opt):
                 index_list=np.arange(0,len(train_label_list))
                 for i in range(0,all_data_size):
                     acq_tensor=net.predictive_entropy(all_data_tensor)
-                    target_index=np.argmax(acq_tensor.cpu().numpy())
+                    target_index=np.argmax(acq_tensor.detach().cpu().numpy())
                     net.online_train(all_data_tensor[target_index],all_label_tensor[target_index].view(-1),opt['mc_num'],opt['online_step'])
                     
                     test_accuracy=net.test(test_data_tensor,test_label_tensor)
@@ -191,7 +189,12 @@ if __name__=='__main__':
     parser.add_argument('--online_step', type=int, default=200)
     parser.add_argument('--online_lr', type=float, default=1e-4)
     parser.add_argument('--classes', type=str, default='two')
+    parser.add_argument('--gpu', type=str, default='1')
     args = parser.parse_args()
+
+    os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"  
+    os.environ["CUDA_VISIBLE_DEVICES"]=args.gpu
+
 
     np.random.seed(0)
     torch.manual_seed(0)

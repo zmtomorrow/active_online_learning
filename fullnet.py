@@ -38,7 +38,9 @@ class FullNet(nn.Module):
         return pred
 
     
-    def mc_forward(self,x,mc_num=1000):
+    def mc_forward(self,x,mc_num=100):
+        x=x.view(-1,784).to(self.device)
+        x=x.view(-1,784)
         final_weight_sample= low_rank_gaussian_sample(self.q_mu,self.q_L,self.q_sigma,amount=mc_num,cuda=self.if_cuda).view(mc_num,784,10).permute(0,2,1) 
         probs=torch.mean(torch.softmax((final_weight_sample@x.t()).permute(2,0,1),-1),1)
         return probs
@@ -58,21 +60,19 @@ class FullNet(nn.Module):
         for i in range(0,online_step):
             self.online_optimizer.zero_grad()
             probs=self.mc_forward(x,mc_num)
-            nll_loss=F.cross_entropy(probs, probs)*total_size
+            nll_loss=F.cross_entropy(probs, label)*total_size
             kl=KL_low_rank_gaussian_with_low_rank_gaussian(self.q_mu,self.q_L,self.q_sigma,curr_prior_mu,curr_prior_L,curr_prior_sigma,cuda=self.if_cuda)
             neg_elbo=kl+nll_loss
             neg_elbo.backward()
             self.online_optimizer.step()
             train_losses.append(neg_elbo.item())
-            entropy_list.append(self.predictive_entropy(x,self.mode))
-            prob_list.append(self.marginal_probability(x,self.mode))
+            entropy_list.append(self.predictive_entropy(x))
+            prob_list.append(self.mc_forward(x))
             
         return train_losses
     
     def train(self,x,label,mc_num):
-        x=x.view(-1,784).to(self.device)
-        label=label.to(self.device)
-        label=label.to(self.device)
+        x=x.view(-1,784)
         train_losses = []
         if x.size(0)<100:
             batch_size=x.size(0)
@@ -81,19 +81,19 @@ class FullNet(nn.Module):
             batch_size=100
             iteration=int(x.size(0)/batch_size)
         for epoch in range(0,30):
-            print('epoch',epoch)
+            #print('epoch',epoch)
             for it in range(0,iteration):
                 index=np.random.choice(x.size(0),batch_size)
                 self.optimizer.zero_grad()
-                probs=self.mc_forward(x[index],mc_num)
-                nll_loss=F.cross_entropy(probs, label[index],reduction='mean')*x.size(0)
+                probs=self.mc_forward(x[index].to(self.device),mc_num)
+                nll_loss=F.cross_entropy(probs, label[index].to(self.device),reduction='mean')*x.size(0)
 
                 kl=KL_low_rank_gaussian_with_diag_gaussian(self.q_mu,self.q_L,self.q_sigma,self.prior_mu,self.prior_sigma,cuda=self.if_cuda)
                 neg_elbo=kl+nll_loss
                 neg_elbo.backward()
                 self.optimizer.step()
                 train_losses.append(neg_elbo.item())
-            print('loss',neg_elbo.item())
+            #print('loss',neg_elbo.item())
         return train_losses
         
 
